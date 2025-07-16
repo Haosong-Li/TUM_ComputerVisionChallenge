@@ -257,6 +257,13 @@ Images will be aligned using the first image as reference and saved in `.cache/`
 &nbsp;  https://doi.org/10.1109/iccv.2011.6126544
 
 
+4\. Zhu, Y., & Huang, C. (2012). An adaptive histogram equalization 
+
+&nbsp; algorithm on the image gray level mapping. Physics Procedia, 25, 601–608. 
+
+&nbsp; https://doi.org/10.1016/j.phpro.2012.03.132 
+
+
 
 ---
 
@@ -278,13 +285,13 @@ Images will be aligned using the first image as reference and saved in `.cache/`
 
 │   │   ├── 2023\_01.jpg
 
-│   │   └── 2024\_01.jpg
+│   │   ├── 2024\_01.jpg
 
-├── src/
+│   │   └── ...
 
-│   ├── preprocess.m
+├── preprocess.m
 
-│   ├── align\_images.m
+├── align\_images.m
 
 │   └── ...
 

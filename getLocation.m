@@ -30,39 +30,89 @@ function [imgs, timestamps, selectedPath] = getLocation()
         error('No supported image files found in selected folder.');
     end
 
+    % --- Rename files to YYYY_MM ---
+    datePatterns = {
+        '(\d{1,2})_(\d{4})', 'MM_YYYY';      % e.g., 3_2022
+        '(\d{4})_(\d{1,2})', 'YYYY_MM';      % e.g., 2022_3
+        '(\d{4})-(\d{2})-(\d{2})', 'YYYY-MM-DD'; % e.g., 2022-03-15
+        '(\d{8})', 'YYYYMMDD';              % e.g., 20220315
+    };
+
+    for i = 1:length(files)
+        name = files(i).name;
+        oldPath = fullfile(files(i).folder, name);
+        [~, nameOnly, ext] = fileparts(name);
+
+        renamed = false;
+
+        for p = 1:size(datePatterns, 1)
+            pattern = datePatterns{p, 1};
+            tokens = regexp(nameOnly, pattern, 'tokens');
+            if ~isempty(tokens)
+                tokens = tokens{1};
+                switch datePatterns{p, 2}
+                    case 'MM_YYYY'
+                        mm = sprintf('%02d', str2double(tokens{1}));
+                        yyyy = tokens{2};
+                    case 'YYYY_MM'
+                        yyyy = tokens{1};
+                        mm = sprintf('%02d', str2double(tokens{2}));
+                    case 'YYYY-MM-DD'
+                        yyyy = tokens{1};
+                        mm = tokens{2};
+                    case 'YYYYMMDD'
+                        yyyy = tokens{1}(1:4);
+                        mm = tokens{1}(5:6);
+                    otherwise
+                        continue;
+                end
+                newName = [yyyy '_' mm ext];
+                newPath = fullfile(files(i).folder, newName);
+                if ~exist(newPath, 'file')
+                    movefile(oldPath, newPath);
+                    fprintf('Renamed: %s -> %s\n', name, newName);
+                    files(i).name = newName;  % Update in struct
+                    renamed = true;
+                else
+                    fprintf('Skipped (exists): %s\n', newName);
+                end
+                break;
+            end
+        end
+
+        if ~renamed
+            fprintf('Unrecognized format: %s (skipped)\n', name);
+        end
+    end
+
+    % Refresh file list after renaming
+    files = [];
+    for i = 1:length(extensions)
+        files = [files; dir(fullfile(selectedPath, extensions{i}))];
+    end
+
     % Sort files alphabetically
     [~, idx] = sort({files.name});
     files = files(idx);
 
-    % Determine format from first file
-[~, firstName, ~] = fileparts(files(1).name);
-useTimeOnly = false;
+    % Preallocate
+    n = numel(files);
+    imgs = cell(1, n);
+    timestamps = datetime.empty(1, 0);
 
-if strlength(firstName) == 15  % Format: YYYY_MM_DD_HHmm
-    useTimeOnly = true;
-elseif strlength(firstName) == 7  % Format: YYYY_MM
-    useTimeOnly = false;
-else
-    error('Unrecognized filename format.');
-end
+    for k = 1:n
+        fullPath = fullfile(files(k).folder, files(k).name);
+        imgs{k} = im2double(imread(fullPath));
+        [~, nameOnly, ~] = fileparts(files(k).name);
 
-% Preallocate
-n = numel(files);
-imgs = cell(1, n);
-timestamps = datetime.empty(1, 0);  % << Use datetime array, not cell
+        try
+            dt = datetime(nameOnly, 'InputFormat', 'yyyy_MM');
+        catch
+            warning('Could not parse datetime from file: %s', files(k).name);
+            dt = NaT;
+        end
 
-for k = 1:n
-    fullPath = fullfile(files(k).folder, files(k).name);
-    imgs{k} = im2double(imread(fullPath));
-    [~, nameOnly, ~] = fileparts(files(k).name);
-
-    if useTimeOnly
-        timeStr = nameOnly(end-3:end);  % e.g., '1430'
-        dt = datetime(timeStr, 'InputFormat', 'HHmm');
-    else
-        dt = datetime(nameOnly, 'InputFormat', 'yyyy_MM');
+        timestamps(k) = dt;
     end
-
-    timestamps(k) = dt;  % << Directly into datetime array
 end
 
